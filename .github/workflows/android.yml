@@ -10,15 +10,27 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: barichello/godot-ci:4.3.1
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Import project
-        run: godot --headless --editor --quit
-      - name: Build APK
-        run: mkdir -p build && godot --headless --path . --export-debug "Android" build/Arcana-Realms-Prototype-01.apk
+
+      - name: Setup
+        run: |
+          mkdir -p \~/.local/share/godot/export_templates
+          mkdir -p build
+
+      - name: Import project (pre-heat)
+        run: |
+          godot --headless --editor --quit-after 1 || true
+
+      - name: Export Debug APK
+        run: |
+          godot --headless --verbose --export-debug "Android" build/Arcana-Realms-Prototype-01.apk
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: Arcana-Realms-Prototype-01-APK
           path: build/Arcana-Realms-Prototype-01.apk
+          if-no-files-found: error
