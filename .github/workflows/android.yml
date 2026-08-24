@@ -15,29 +15,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup templates + Java + Android
+      - name: Setup
         run: |
           set -e
-          echo "=== Versão do Godot ==="
+          echo "Godot version:"
           godot --version
 
           mkdir -p \~/.local/share/godot/export_templates/4.7.1.stable
           mkdir -p \~/.config/godot
           mkdir -p build
 
-          echo "=== Baixando export templates ==="
-          wget -q --show-progress https://github.com/godotengine/godot/releases/download/4.7.1-stable/Godot_v4.7.1-stable_export_templates.tpz -O /tmp/templates.tpz
-          
-          echo "=== Extraindo templates ==="
-          unzip -q /tmp/templates.tpz -d /tmp/templates
-          ls -la /tmp/templates/templates/ | head -20
-          
-          cp /tmp/templates/templates/* \~/.local/share/godot/export_templates/4.7.1.stable/
-          
-          echo "=== Templates instalados ==="
-          ls -la \~/.local/share/godot/export_templates/4.7.1.stable/ | grep -E 'android|version'
+          echo "Baixando templates..."
+          wget -q https://github.com/godotengine/godot/releases/download/4.7.1-stable/Godot_v4.7.1-stable_export_templates.tpz -O /tmp/templates.tpz
+          unzip -q /tmp/templates.tpz -d /tmp
+          cp /tmp/templates/* \~/.local/share/godot/export_templates/4.7.1.stable/
+          ls \~/.local/share/godot/export_templates/4.7.1.stable/ | grep android
 
-          # Garante debug keystore
+          # Debug keystore
           if [ ! -f /root/debug.keystore ]; then
             keytool -genkey -v -keystore /root/debug.keystore \
               -storepass android -alias androiddebugkey -keypass android \
@@ -45,36 +39,29 @@ jobs:
               -dname "CN=Android Debug,O=Android,C=US"
           fi
 
-          # Descobre Java
-          JAVA_PATH=$(dirname $(dirname $(readlink -f $(which java) || which java)))
-          echo "Java path: $JAVA_PATH"
+          JAVA_PATH=$(dirname $(dirname $(readlink -f $(which java))))
+          echo "Java: $JAVA_PATH"
 
-          # Cria o arquivo com o nome CORRETO para Godot 4.7
           cat > \~/.config/godot/editor_settings-4.7.tres << EOF
-[gd_resource type="EditorSettings" format=3]
+          [gd_resource type="EditorSettings" format=3]
 
-[resource]
-export/android/java_sdk_path = "$JAVA_PATH"
-export/android/android_sdk_path = "/usr/lib/android-sdk"
-export/android/debug_keystore = "/root/debug.keystore"
-export/android/debug_keystore_user = "androiddebugkey"
-export/android/debug_keystore_pass = "android"
-EOF
+          [resource]
+          export/android/java_sdk_path="$JAVA_PATH"
+          export/android/android_sdk_path="/usr/lib/android-sdk"
+          export/android/debug_keystore="/root/debug.keystore"
+          export/android/debug_keystore_user="androiddebugkey"
+          export/android/debug_keystore_pass="android"
+          EOF
 
-          echo "=== Editor Settings criado ==="
-          cat \~/.config/godot/editor_settings-4.7.tres
+      - name: Import
+        run: godot --headless --editor --quit-after 2 || true
 
-      - name: Import project (pre-heat)
-        run: |
-          godot --headless --editor --quit-after 3 || true
+      - name: Export
+        run: godot --headless --verbose --export-debug "Android" build/Arcana-Realms-Prototype-02.apk
 
-      - name: Export Debug APK
-        run: |
-          godot --headless --verbose --export-debug "Android" build/Arcana-Realms-Prototype-01.apk
-
-      - name: Upload APK
+      - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: Arcana-Realms-Prototype-01-APK
-          path: build/Arcana-Realms-Prototype-01.apk
+          name: Arcana-Realms-Prototype-02-APK
+          path: build/Arcana-Realms-Prototype-02.apk
           if-no-files-found: error
