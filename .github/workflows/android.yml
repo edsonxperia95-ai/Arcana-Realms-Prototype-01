@@ -5,56 +5,32 @@ on:
   push:
     branches: [ main ]
 
+env:
+  GODOT_VERSION: 4.7.1
+
 jobs:
   build-apk:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     container:
       image: barichello/godot-ci:4.7.1
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Setup
         run: |
-          set -e
-          echo "Godot version:"
-          godot --version
-
-          mkdir -p \~/.local/share/godot/export_templates/4.7.1.stable
-          mkdir -p \~/.config/godot
+          mkdir -p "$HOME/.local/share/godot/export_templates"
+          mkdir -p "$HOME/.config"
           mkdir -p build
-
-          echo "Baixando templates..."
-          wget -q https://github.com/godotengine/godot/releases/download/4.7.1-stable/Godot_v4.7.1-stable_export_templates.tpz -O /tmp/templates.tpz
-          unzip -q /tmp/templates.tpz -d /tmp
-          cp /tmp/templates/* \~/.local/share/godot/export_templates/4.7.1.stable/
-          ls \~/.local/share/godot/export_templates/4.7.1.stable/ | grep android
-
-          # Debug keystore
-          if [ ! -f /root/debug.keystore ]; then
-            keytool -genkey -v -keystore /root/debug.keystore \
-              -storepass android -alias androiddebugkey -keypass android \
-              -keyalg RSA -keysize 2048 -validity 10000 \
-              -dname "CN=Android Debug,O=Android,C=US"
-          fi
-
-          JAVA_PATH=$(dirname $(dirname $(readlink -f $(which java))))
-          echo "Java: $JAVA_PATH"
-
-          cat > \~/.config/godot/editor_settings-4.7.tres << EOF
-          [gd_resource type="EditorSettings" format=3]
-
-          [resource]
-          export/android/java_sdk_path="$JAVA_PATH"
-          export/android/android_sdk_path="/usr/lib/android-sdk"
-          export/android/debug_keystore="/root/debug.keystore"
-          export/android/debug_keystore_user="androiddebugkey"
-          export/android/debug_keystore_pass="android"
-          EOF
+          rm -rf "$HOME/.config/godot"
+          cp -a /root/.config/godot "$HOME/.config/godot"
+          rm -rf "$HOME/.local/share/godot/export_templates/4.7.1.stable"
+          cp -a /root/.local/share/godot/export_templates/4.7.1.stable "$HOME/.local/share/godot/export_templates/4.7.1.stable"
+          ls "$HOME/.local/share/godot/export_templates/4.7.1.stable" | grep android
+          cat "$HOME/.config/godot/editor_settings-4.7.tres"
 
       - name: Import
-        run: godot --headless --editor --quit-after 2 || true
+        run: godot --headless --import --quit || true
 
       - name: Export
         run: godot --headless --verbose --export-debug "Android" build/Arcana-Realms-Prototype-02.apk
