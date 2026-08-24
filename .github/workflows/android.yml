@@ -9,20 +9,43 @@ jobs:
   build-apk:
     runs-on: ubuntu-latest
     container:
-      image: barichello/godot-ci:4.7.1   # ← tag correta
+      image: barichello/godot-ci:4.7.1
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup
+      - name: Setup templates + editor settings
         run: |
+          # Cria a pasta que o Godot espera
           mkdir -p \~/.local/share/godot/export_templates
+          mkdir -p \~/.config/godot
           mkdir -p build
+
+          # Move os templates do root para o usuário do runner
+          if [ -d /root/.local/share/godot/export_templates/4.7.1.stable ]; then
+            cp -r /root/.local/share/godot/export_templates/4.7.1.stable \~/.local/share/godot/export_templates/
+          fi
+
+          # Configura Editor Settings (Java + Android + debug keystore)
+          cat > \~/.config/godot/editor_settings-4.tres << 'EOF'
+          [gd_resource type="EditorSettings" format=3]
+
+          [resource]
+          export/android/java_sdk_path = "/usr/lib/jvm/java-17-openjdk-amd64"
+          export/android/android_sdk_path = "/usr/lib/android-sdk"
+          export/android/debug_keystore = "/root/debug.keystore"
+          export/android/debug_keystore_user = "androiddebugkey"
+          export/android/debug_keystore_pass = "android"
+          EOF
+
+          # Fallback caso o caminho do Java seja diferente
+          ls /usr/lib/jvm/ || true
+          ls /root/ || true
 
       - name: Import project (pre-heat)
         run: |
-          godot --headless --editor --quit-after 1 || true
+          godot --headless --editor --quit-after 2 || true
 
       - name: Export Debug APK
         run: |
