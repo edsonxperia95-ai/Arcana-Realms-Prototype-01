@@ -15,37 +15,50 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup templates + editor settings
+      - name: Setup templates + Java + Android
         run: |
-          # Cria a pasta que o Godot espera
-          mkdir -p \~/.local/share/godot/export_templates
+          set -e
+          mkdir -p \~/.local/share/godot/export_templates/4.7.1.stable
           mkdir -p \~/.config/godot
           mkdir -p build
 
-          # Move os templates do root para o usuário do runner
-          if [ -d /root/.local/share/godot/export_templates/4.7.1.stable ]; then
-            cp -r /root/.local/share/godot/export_templates/4.7.1.stable \~/.local/share/godot/export_templates/
-          fi
+          echo "=== Baixando export templates 4.7.1 ==="
+          wget -q https://github.com/godotengine/godot-builds/releases/download/4.7.1-stable/Godot_v4.7.1-stable_export_templates.tpz -O /tmp/templates.tpz
+          unzip -q /tmp/templates.tpz -d /tmp/templates
+          cp /tmp/templates/templates/* \~/.local/share/godot/export_templates/4.7.1.stable/
+          ls -la \~/.local/share/godot/export_templates/4.7.1.stable/
 
-          # Configura Editor Settings (Java + Android + debug keystore)
-          cat > \~/.config/godot/editor_settings-4.tres << 'EOF'
+          echo "=== Configurando Editor Settings ==="
+          # Descobre o caminho real do Java
+          JAVA_PATH=$(dirname $(dirname $(readlink -f $(which java))))
+          echo "Java encontrado em: $JAVA_PATH"
+
+          cat > \~/.config/godot/editor_settings-4.tres << EOF
           [gd_resource type="EditorSettings" format=3]
 
           [resource]
-          export/android/java_sdk_path = "/usr/lib/jvm/java-17-openjdk-amd64"
+          export/android/java_sdk_path = "$JAVA_PATH"
           export/android/android_sdk_path = "/usr/lib/android-sdk"
           export/android/debug_keystore = "/root/debug.keystore"
           export/android/debug_keystore_user = "androiddebugkey"
           export/android/debug_keystore_pass = "android"
           EOF
 
-          # Fallback caso o caminho do Java seja diferente
-          ls /usr/lib/jvm/ || true
-          ls /root/ || true
+          # Fallback caso o keystore não exista
+          if [ ! -f /root/debug.keystore ]; then
+            keytool -genkey -v -keystore /root/debug.keystore \
+              -storepass android -alias androiddebugkey -keypass android \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
+          echo "=== Verificação ==="
+          ls -la \~/.local/share/godot/export_templates/4.7.1.stable/ | grep android
+          cat \~/.config/godot/editor_settings-4.tres
 
       - name: Import project (pre-heat)
         run: |
-          godot --headless --editor --quit-after 2 || true
+          godot --headless --editor --quit-after 3 || true
 
       - name: Export Debug APK
         run: |
