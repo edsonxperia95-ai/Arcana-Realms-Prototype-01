@@ -9,7 +9,7 @@ jobs:
   build-apk:
     runs-on: ubuntu-latest
     container:
-      image: barichello/godot-ci:4.3.1
+      image: barichello/godot-ci:4.7.1   # ← tag correta
 
     steps:
       - name: Checkout
